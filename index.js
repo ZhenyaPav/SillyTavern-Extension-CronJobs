@@ -374,7 +374,7 @@ async function runJob(job, scheduledAt) {
     isCronGeneration = true;
     try {
         textarea.val(message)[0]?.dispatchEvent(new Event('input', { bubbles: true }));
-        await Generate('normal', { automatic_trigger: true });
+        await Generate('normal');
         addRunHistory(job, 'success', `Scheduled for ${scheduledAt.toISOString()}`);
     } catch (error) {
         addRunHistory(job, 'error', error instanceof Error ? error.message : String(error));

@@ -54,6 +54,8 @@ The wrapper variables are local to this extension and are expanded only when a c
 
 Unknown `{{...}}` placeholders are left unchanged.
 
+After these local variables are rendered, the message is sent through SillyTavern's normal user-message path. Regular SillyTavern macros in the final cron message, such as `{{user}}`, `{{char}}`, or chat-history macros supported by your SillyTavern version, are resolved there.
+
 ## Schedule Formats
 
 ### One-shot
