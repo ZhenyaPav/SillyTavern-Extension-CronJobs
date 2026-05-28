@@ -1,66 +1,60 @@
 <div id="cronjobs_settings" class="cronjobs_settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
-            <b>Cron Jobs</b>
+            <b data-i18n="Cron Jobs">Cron Jobs</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
             <label for="cronjobs_enabled" class="checkbox_label">
-                <span>Execute jobs</span>
+                <span data-i18n="Execute cron jobs">Execute cron jobs</span>
                 <input id="cronjobs_enabled" type="checkbox" />
             </label>
             <label for="cronjobs_execute_overdue" class="checkbox_label">
-                <span>Execute overdue jobs on tab open / character switch</span>
+                <span data-i18n="Execute overdue cron jobs on tab open / character switch">Execute overdue cron jobs on tab open / character switch</span>
                 <input id="cronjobs_execute_overdue" type="checkbox" />
             </label>
             <label for="cronjobs_tools_enabled" class="checkbox_label">
-                <span>Function tools</span>
+                <span data-i18n="Cron function tools">Cron function tools</span>
                 <input id="cronjobs_tools_enabled" type="checkbox" />
             </label>
             <div class="flex-container flexFlowColumn">
-                <label for="cronjobs_max_overdue_age">Maximum overdue age, hours</label>
+                <label for="cronjobs_max_overdue_age" data-i18n="Maximum cron overdue age, hours">Maximum cron overdue age, hours</label>
                 <input id="cronjobs_max_overdue_age" class="text_pole" type="number" min="0" step="1" />
             </div>
             <div class="flex-container flexFlowColumn">
-                <label for="cronjobs_max_catchup_runs">Maximum jobs executed at once</label>
+                <label for="cronjobs_max_catchup_runs" data-i18n="Maximum cron jobs executed at once">Maximum cron jobs executed at once</label>
                 <input id="cronjobs_max_catchup_runs" class="text_pole" type="number" min="1" step="1" />
             </div>
             <div class="cronjobs_status">
-                <span id="cronjobs_current_character">No character selected.</span>
+                <span id="cronjobs_current_character" data-i18n="No character selected.">No character selected.</span>
                 <span id="cronjobs_leader_status"></span>
             </div>
-        </div>
-    </div>
 
-    <div class="inline-drawer">
-        <div class="inline-drawer-toggle inline-drawer-header">
-            <b>Current Character Jobs</b>
-            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
-        </div>
-        <div class="inline-drawer-content">
+            <hr />
+            <h4 data-i18n="Cron Jobs for Current Character">Cron Jobs for Current Character</h4>
             <div id="cronjobs_job_list" class="cronjobs_job_list"></div>
             <div class="cronjobs_job_editor">
-                <h4 id="cronjobs_editor_title">Add job</h4>
+                <h4 id="cronjobs_editor_title" data-i18n="Add cron job">Add cron job</h4>
                 <input id="cronjobs_edit_id" type="hidden" />
-                <label for="cronjobs_edit_title">Title</label>
+                <label for="cronjobs_edit_title" data-i18n="Title">Title</label>
                 <input id="cronjobs_edit_title" class="text_pole" type="text" />
-                <label for="cronjobs_edit_schedule_type">Schedule type</label>
+                <label for="cronjobs_edit_schedule_type" data-i18n="Schedule type">Schedule type</label>
                 <select id="cronjobs_edit_schedule_type" class="text_pole">
-                    <option value="cron">Cron</option>
-                    <option value="once">Once</option>
+                    <option value="cron" data-i18n="Cron">Cron</option>
+                    <option value="once" data-i18n="Once">Once</option>
                 </select>
-                <label for="cronjobs_edit_schedule">Schedule</label>
-                <input id="cronjobs_edit_schedule" class="text_pole" type="text" placeholder="*/30 * * * * or 2026-05-28 14:30" />
-                <label for="cronjobs_edit_prompt">Prompt</label>
+                <label for="cronjobs_edit_schedule" data-i18n="Schedule">Schedule</label>
+                <input id="cronjobs_edit_schedule" class="text_pole" type="text" data-i18n="[placeholder]*/30 * * * * or 2026-05-28 14:30" placeholder="*/30 * * * * or 2026-05-28 14:30" />
+                <label for="cronjobs_edit_prompt" data-i18n="Prompt">Prompt</label>
                 <textarea id="cronjobs_edit_prompt" class="text_pole textarea_compact" rows="5"></textarea>
                 <label for="cronjobs_edit_enabled" class="checkbox_label">
-                    <span>Enabled</span>
+                    <span data-i18n="Enabled">Enabled</span>
                     <input id="cronjobs_edit_enabled" type="checkbox" checked />
                 </label>
                 <div id="cronjobs_edit_validation" class="cronjobs_validation"></div>
                 <div class="flex-container flexGap5">
-                    <button id="cronjobs_save_job" class="menu_button">Save</button>
-                    <button id="cronjobs_new_job" class="menu_button">New</button>
+                    <button id="cronjobs_save_job" class="menu_button" data-i18n="Save">Save</button>
+                    <button id="cronjobs_new_job" class="menu_button" data-i18n="New">New</button>
                 </div>
             </div>
         </div>
@@ -68,24 +62,21 @@
 
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
-            <b>Cron Message Template</b>
+            <b data-i18n="Cron Message and Tool Prompts">Cron Message and Tool Prompts</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
+            <h4 data-i18n="Cron Message Template">Cron Message Template</h4>
             <div class="title_restorable">
-                <label for="cronjobs_execution_template">Execution message template</label>
-                <button id="cronjobs_restore_execution_template" class="menu_button fa-solid fa-undo" title="Restore default"></button>
+                <label for="cronjobs_execution_template" data-i18n="Execution message template">Execution message template</label>
+                <button id="cronjobs_restore_execution_template" class="menu_button fa-solid fa-undo" data-i18n="[title]Restore default" title="Restore default"></button>
             </div>
             <textarea id="cronjobs_execution_template" class="text_pole textarea_compact" rows="8"></textarea>
-            <small>Local variables: &#123;&#123;id&#125;&#125;, &#123;&#123;title&#125;&#125;, &#123;&#123;scheduledAt&#125;&#125;, &#123;&#123;currentTime&#125;&#125;, &#123;&#123;prompt&#125;&#125;</small>
+            <small data-i18n="Cron local variables:">Cron local variables:</small>
+            <small>&#123;&#123;id&#125;&#125;, &#123;&#123;title&#125;&#125;, &#123;&#123;scheduledAt&#125;&#125;, &#123;&#123;currentTime&#125;&#125;, &#123;&#123;prompt&#125;&#125;</small>
+            <hr />
+            <h4 data-i18n="Cron Function Tool Prompts">Cron Function Tool Prompts</h4>
+            <div id="cronjobs_tool_prompts"></div>
         </div>
-    </div>
-
-    <div class="inline-drawer">
-        <div class="inline-drawer-toggle inline-drawer-header">
-            <b>Function Tool Prompts</b>
-            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
-        </div>
-        <div id="cronjobs_tool_prompts" class="inline-drawer-content"></div>
     </div>
 </div>

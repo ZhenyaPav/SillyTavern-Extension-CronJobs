@@ -11,6 +11,7 @@ import { extension_settings, getContext, renderExtensionTemplateAsync } from '..
 import { selected_group } from '../../../group-chats.js';
 import { ToolManager } from '../../../tool-calling.js';
 import { getMessageTimeStamp } from '../../../RossAscends-mods.js';
+import { t } from '../../../i18n.js';
 
 const MODULE_NAME = 'third-party/SillyTavern-Extension-CronJobs';
 const SETTINGS_KEY = 'cronJobs';
@@ -338,7 +339,7 @@ async function runJob(job, scheduledAt) {
     const message = buildCronMessage(job, scheduledAt);
     const textarea = $('#send_textarea');
     if (getDraftText().trim()) {
-        throw new Error('User draft exists; deferring cron job.');
+        throw new Error(t`User draft exists; deferring cron job.`);
     }
 
     job.lastRunAt = new Date().toISOString();
@@ -387,13 +388,13 @@ async function checkDueJobs(reason = 'timer') {
             }
 
             if (isCatchupCheck && !settings().executeOverdueOnOpen) {
-                addRunHistory(job, 'skipped', 'Overdue execution is disabled.');
+                addRunHistory(job, 'skipped', t`Overdue execution is disabled.`);
                 advanceJob(job, new Date());
                 continue;
             }
 
             if (isTooOld) {
-                addRunHistory(job, 'skipped', 'Overdue run exceeded maximum age.');
+                addRunHistory(job, 'skipped', t`Overdue run exceeded maximum age.`);
                 advanceJob(job, new Date());
                 continue;
             }
@@ -416,10 +417,10 @@ function normalizeJobInput(input = {}) {
     const scheduleType = input.scheduleType === 'once' ? 'once' : 'cron';
 
     if (!title) {
-        throw new Error('Title is required.');
+        throw new Error(t`Title is required.`);
     }
     if (!prompt) {
-        throw new Error('Prompt is required.');
+        throw new Error(t`Prompt is required.`);
     }
     const { nextRun } = validateSchedule(scheduleType, schedule);
     return { title, prompt, schedule, scheduleType, nextRun };
@@ -428,7 +429,7 @@ function normalizeJobInput(input = {}) {
 function createJob(input) {
     const character = getCurrentCharacter();
     if (!character?.avatar) {
-        throw new Error('Open a character chat before creating cron jobs.');
+        throw new Error(t`Open a character chat before creating cron jobs.`);
     }
 
     const normalized = normalizeJobInput(input);
@@ -456,7 +457,7 @@ function createJob(input) {
 function updateJob(id, input) {
     const job = getCurrentCharacterJobs().find(item => item.id === id);
     if (!job) {
-        throw new Error('Cron job not found for the current character.');
+        throw new Error(t`Cron job not found for the current character.`);
     }
 
     const nextInput = {
@@ -484,7 +485,7 @@ function deleteJob(id) {
     const character = getCurrentCharacter();
     const index = settings().jobs.findIndex(job => job.id === id && job.characterAvatar === character?.avatar);
     if (index === -1) {
-        throw new Error('Cron job not found for the current character.');
+        throw new Error(t`Cron job not found for the current character.`);
     }
     const [job] = settings().jobs.splice(index, 1);
     saveSettingsDebounced();
@@ -593,7 +594,7 @@ function setEditorJob(job = null) {
     $('#cronjobs_edit_schedule').val(job?.schedule || '');
     $('#cronjobs_edit_prompt').val(job?.prompt || '');
     $('#cronjobs_edit_enabled').prop('checked', job?.enabled !== false);
-    $('#cronjobs_editor_title').text(job ? 'Edit job' : 'Add job');
+    $('#cronjobs_editor_title').text(job ? t`Edit cron job` : t`Add cron job`);
     $('#cronjobs_edit_validation').text('');
 }
 
@@ -605,7 +606,7 @@ function renderJobs() {
 
     const character = getCurrentCharacter();
     if (!character) {
-        list.empty().append($('<div></div>').text('Open a character chat to manage cron jobs.'));
+        list.empty().append($('<div></div>').text(t`Open a character chat to manage cron jobs.`));
         updateStatus();
         return;
     }
@@ -613,14 +614,14 @@ function renderJobs() {
     const jobs = getCurrentCharacterJobs().sort((a, b) => String(a.nextRunAt || '').localeCompare(String(b.nextRunAt || '')));
     list.empty();
     if (!jobs.length) {
-        list.append($('<div></div>').text('No cron jobs for this character.'));
+        list.append($('<div></div>').text(t`No cron jobs for this character.`));
     }
 
     for (const job of jobs) {
         const item = $('<div></div>').addClass('cronjobs_job_item');
         const header = $('<div></div>').addClass('cronjobs_job_header');
         const title = $('<div></div>').addClass('cronjobs_job_title').text(job.title);
-        const enabled = $('<label></label>').addClass('checkbox_label').append($('<span></span>').text('Enabled'));
+        const enabled = $('<label></label>').addClass('checkbox_label').append($('<span></span>').text(t`Enabled`));
         const checkbox = $('<input type="checkbox" />').prop('checked', job.enabled !== false).on('change', () => {
             job.enabled = checkbox.prop('checked');
             job.updatedAt = new Date().toISOString();
@@ -630,11 +631,11 @@ function renderJobs() {
         enabled.append(checkbox);
         header.append(title, enabled);
 
-        const meta = $('<div></div>').addClass('cronjobs_job_meta').text(`${job.scheduleType}: ${job.schedule} | next: ${job.nextRunAt ? formatDate(job.nextRunAt) : 'none'} | last: ${job.lastRunAt ? formatDate(job.lastRunAt) : 'never'}`);
+        const meta = $('<div></div>').addClass('cronjobs_job_meta').text(`${job.scheduleType}: ${job.schedule} | ${t`next`}: ${job.nextRunAt ? formatDate(job.nextRunAt) : t`none`} | ${t`last`}: ${job.lastRunAt ? formatDate(job.lastRunAt) : t`never`}`);
         const prompt = $('<div></div>').addClass('cronjobs_job_meta').text(job.prompt);
         const actions = $('<div></div>').addClass('cronjobs_job_actions');
-        actions.append($('<button></button>').addClass('menu_button').text('Edit').on('click', () => setEditorJob(job)));
-        actions.append($('<button></button>').addClass('menu_button').text('Delete').on('click', () => {
+        actions.append($('<button></button>').addClass('menu_button').text(t`Edit`).on('click', () => setEditorJob(job)));
+        actions.append($('<button></button>').addClass('menu_button').text(t`Delete`).on('click', () => {
             deleteJob(job.id);
             setEditorJob();
             renderJobs();
@@ -680,7 +681,7 @@ function renderToolPrompts() {
         const block = $('<div></div>').addClass('cronjobs_tool_prompt_block');
         const header = $('<div></div>').addClass('title_restorable');
         const label = $('<label></label>').attr('for', `cronjobs_tool_prompt_${key}`).text(key);
-        const restore = $('<button></button>').addClass('menu_button fa-solid fa-undo').attr('title', 'Restore default').on('click', () => {
+        const restore = $('<button></button>').addClass('menu_button fa-solid fa-undo').attr('title', t`Restore default`).on('click', () => {
             settings().toolPrompts[key] = defaultValue;
             $(`#cronjobs_tool_prompt_${key}`).val(defaultValue);
             registerFunctionTools();
@@ -714,8 +715,8 @@ function updateControls() {
 
 function updateStatus() {
     const character = getCurrentCharacter();
-    $('#cronjobs_current_character').text(character ? `Current character: ${character.name || character.avatar}` : 'No character selected.');
-    $('#cronjobs_leader_status').text(ownsLeaderLease() ? 'Scheduler: this tab is leader.' : 'Scheduler: another tab may be leader.');
+    $('#cronjobs_current_character').text(character ? t`Current character:` + ` ${character.name || character.avatar}` : t`No character selected.`);
+    $('#cronjobs_leader_status').text(ownsLeaderLease() ? t`Cron scheduler: this tab is leader.` : t`Cron scheduler: another tab may be leader.`);
 }
 
 function bindSettingsUi() {
@@ -764,7 +765,7 @@ function bindSettingsUi() {
             const job = id ? updateJob(id, input) : createJob(input);
             setEditorJob(job);
             renderJobs();
-            $('#cronjobs_edit_validation').text('Saved.');
+            $('#cronjobs_edit_validation').text(t`Saved.`);
         } catch (error) {
             $('#cronjobs_edit_validation').text(error instanceof Error ? error.message : String(error));
         }
@@ -772,7 +773,7 @@ function bindSettingsUi() {
     $('#cronjobs_edit_schedule, #cronjobs_edit_schedule_type').on('input change', () => {
         try {
             const { nextRun } = validateSchedule(String($('#cronjobs_edit_schedule_type').val()), String($('#cronjobs_edit_schedule').val()));
-            $('#cronjobs_edit_validation').text(`Next run: ${formatDate(nextRun)}`);
+            $('#cronjobs_edit_validation').text(t`Next run:` + ` ${formatDate(nextRun)}`);
         } catch (error) {
             $('#cronjobs_edit_validation').text(error instanceof Error ? error.message : String(error));
         }
