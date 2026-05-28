@@ -258,6 +258,22 @@ function ownsLeaderLease() {
     return lease?.tabId === TAB_ID && Number(lease.expiresAt) > Date.now();
 }
 
+function getLeaderLeaseState() {
+    const lease = getLeaderLease();
+    const expiresAt = Number(lease?.expiresAt || 0);
+    const now = Date.now();
+
+    if (!lease || expiresAt <= now) {
+        return { state: 'stale', remainingMs: 0 };
+    }
+
+    if (lease.tabId === TAB_ID) {
+        return { state: 'leader', remainingMs: expiresAt - now };
+    }
+
+    return { state: 'other', remainingMs: expiresAt - now };
+}
+
 function acquireLeaderLease() {
     const lease = getLeaderLease();
     if (lease && lease.tabId !== TAB_ID && Number(lease.expiresAt) > Date.now()) {
@@ -278,6 +294,12 @@ function renewLeaderLease() {
 
 function isCurrentTabLeader() {
     return ownsLeaderLease() || acquireLeaderLease();
+}
+
+function releaseLeaderLease() {
+    if (ownsLeaderLease()) {
+        localStorage.removeItem(LEASE_KEY);
+    }
 }
 
 function getDraftText() {
@@ -715,8 +737,15 @@ function updateControls() {
 
 function updateStatus() {
     const character = getCurrentCharacter();
+    const lease = getLeaderLeaseState();
     $('#cronjobs_current_character').text(character ? t`Current character:` + ` ${character.name || character.avatar}` : t`No character selected.`);
-    $('#cronjobs_leader_status').text(ownsLeaderLease() ? t`Cron scheduler: this tab is leader.` : t`Cron scheduler: another tab may be leader.`);
+    if (lease.state === 'leader') {
+        $('#cronjobs_leader_status').text(t`Cron scheduler: this tab is leader.`);
+    } else if (lease.state === 'other') {
+        $('#cronjobs_leader_status').text(t`Cron scheduler: another tab is leader.` + ` ${t`Lease expires in`} ${Math.ceil(lease.remainingMs / 1000)}s.`);
+    } else {
+        $('#cronjobs_leader_status').text(t`Cron scheduler: waiting for leader lease.`);
+    }
 }
 
 function bindSettingsUi() {
@@ -790,6 +819,13 @@ function startScheduler() {
     }
 }
 
+function handleLeaseStorageEvent(event) {
+    if (event.key === LEASE_KEY) {
+        renewLeaderLease();
+        checkDueJobs('lease_changed');
+    }
+}
+
 export async function init() {
     ensureSettings();
     const settingsHtml = await renderExtensionTemplateAsync(MODULE_NAME, 'settings');
@@ -810,6 +846,9 @@ export async function init() {
     eventSource.on(event_types.GENERATION_ENDED, () => checkDueJobs('generation_ended'));
     eventSource.on(event_types.CHARACTER_RENAMED, onCharacterRenamed);
     eventSource.on(event_types.CHARACTER_DELETED, onCharacterDeleted);
+    window.addEventListener('storage', handleLeaseStorageEvent);
+    window.addEventListener('pagehide', releaseLeaderLease);
+    window.addEventListener('beforeunload', releaseLeaderLease);
 
     // Useful for debugging from DevTools without exposing a slash command surface.
     globalThis.CronJobsExtension = {
