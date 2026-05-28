@@ -9,6 +9,7 @@ import {
 } from '../../../../script.js';
 import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
 import { selected_group } from '../../../group-chats.js';
+import { sendMessageAs } from '../../../slash-commands.js';
 import { ToolManager } from '../../../tool-calling.js';
 import { getMessageTimeStamp } from '../../../RossAscends-mods.js';
 import { t } from '../../../i18n.js';
@@ -20,6 +21,11 @@ const LEASE_TTL = 15_000;
 const LEASE_RENEW_INTERVAL = 5_000;
 const SCHEDULER_INTERVAL = 60_000;
 const CRON_TOOL_NAMES = ['ListCronJobs', 'AddCronJob', 'UpdateCronJob', 'DeleteCronJob'];
+const SEND_AS = Object.freeze({
+    USER: 'user',
+    SYSTEM: 'system',
+    CHARACTER: 'character',
+});
 const TAB_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 const DEFAULT_EXECUTION_TEMPLATE = `[Scheduled message from Cron Jobs]
@@ -50,6 +56,7 @@ const DEFAULT_SETTINGS = {
     maxOverdueAgeHours: 24,
     maxCatchupRuns: 1,
     functionToolsEnabled: true,
+    sendAs: SEND_AS.USER,
     executionMessageTemplate: DEFAULT_EXECUTION_TEMPLATE,
     toolPrompts: DEFAULT_TOOL_PROMPTS,
     jobs: [],
@@ -88,6 +95,9 @@ function ensureSettings() {
     for (const job of current.jobs) {
         job.runHistory ||= [];
         job.enabled = job.enabled !== false;
+    }
+    if (!Object.values(SEND_AS).includes(current.sendAs)) {
+        current.sendAs = SEND_AS.USER;
     }
 }
 
@@ -357,9 +367,30 @@ function buildCronMessage(job, scheduledAt) {
     });
 }
 
+async function sendCronMessage(message) {
+    const sendAs = settings().sendAs || SEND_AS.USER;
+    if (sendAs === SEND_AS.USER) {
+        const textarea = $('#send_textarea');
+        textarea.val(message)[0]?.dispatchEvent(new Event('input', { bubbles: true }));
+        await Generate('normal');
+        return;
+    }
+
+    const character = getCurrentCharacter();
+    const name = sendAs === SEND_AS.CHARACTER
+        ? character?.name
+        : 'System';
+
+    if (!name) {
+        throw new Error(t`Current character has no name.`);
+    }
+
+    await sendMessageAs({ name }, message);
+    await Generate('normal', { automatic_trigger: true });
+}
+
 async function runJob(job, scheduledAt) {
     const message = buildCronMessage(job, scheduledAt);
-    const textarea = $('#send_textarea');
     if (getDraftText().trim()) {
         throw new Error(t`User draft exists; deferring cron job.`);
     }
@@ -373,8 +404,7 @@ async function runJob(job, scheduledAt) {
 
     isCronGeneration = true;
     try {
-        textarea.val(message)[0]?.dispatchEvent(new Event('input', { bubbles: true }));
-        await Generate('normal');
+        await sendCronMessage(message);
         addRunHistory(job, 'success', `Scheduled for ${scheduledAt.toISOString()}`);
     } catch (error) {
         addRunHistory(job, 'error', error instanceof Error ? error.message : String(error));
@@ -730,6 +760,7 @@ function updateControls() {
     $('#cronjobs_enabled').prop('checked', enabled);
     $('#cronjobs_execute_overdue').prop('checked', !!settings().executeOverdueOnOpen).prop('disabled', !enabled);
     $('#cronjobs_tools_enabled').prop('checked', !!settings().functionToolsEnabled);
+    $('#cronjobs_send_as').val(settings().sendAs || SEND_AS.USER);
     $('#cronjobs_max_overdue_age').val(settings().maxOverdueAgeHours);
     $('#cronjobs_max_catchup_runs').val(settings().maxCatchupRuns);
     $('#cronjobs_execution_template').val(settings().executionMessageTemplate || DEFAULT_EXECUTION_TEMPLATE);
@@ -761,6 +792,11 @@ function bindSettingsUi() {
     $('#cronjobs_tools_enabled').on('change', function () {
         settings().functionToolsEnabled = !!$(this).prop('checked');
         registerFunctionTools();
+        saveSettingsDebounced();
+    });
+    $('#cronjobs_send_as').on('change', function () {
+        const value = String($(this).val() || SEND_AS.USER);
+        settings().sendAs = Object.values(SEND_AS).includes(value) ? value : SEND_AS.USER;
         saveSettingsDebounced();
     });
     $('#cronjobs_max_overdue_age').on('input', function () {

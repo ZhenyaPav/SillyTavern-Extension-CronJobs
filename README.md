@@ -29,7 +29,13 @@ After installation, enable **Cron Jobs** in the Extensions panel.
 
 Jobs are bound to the current character by avatar filename. A job only runs when that character is currently open.
 
-When a job fires, the extension renders the configured cron message template, places the resulting text into the normal send box, and calls SillyTavern's regular generation flow. This means cron jobs behave like normal user messages and use the currently selected model, character context, lorebooks, and generation settings.
+When a job fires, the extension renders the configured cron message template, adds the resulting text to the current chat using the configured sender mode, and calls SillyTavern's regular generation flow. This means cron jobs use the currently selected model, character context, lorebooks, and generation settings.
+
+Cron messages can be sent as:
+
+- **User**: the default normal user-message flow.
+- **System**: a `/sendas name=System` style message, visible to the model as chat history rather than a hidden SillyTavern system message.
+- **Current character**: a `/sendas name="<current character>"` style message.
 
 The default message wrapper is:
 
@@ -96,6 +102,7 @@ Supported field syntax:
 - **Execute cron jobs**: master toggle for automatic execution.
 - **Execute overdue cron jobs on tab open / character switch**: run eligible missed jobs when the UI becomes available.
 - **Cron function tools**: expose job-management tools to supported LLM tool-calling models.
+- **Send cron messages as**: choose whether fired jobs are sent as the user, System, or the current character.
 - **Maximum cron overdue age, hours**: overdue jobs older than this are skipped.
 - **Maximum cron jobs executed at once**: cap catch-up runs per scheduler check.
 - **Cron Message Template**: wrapper used around the job prompt.
@@ -108,6 +115,7 @@ Defaults:
 - Maximum overdue age: 24 hours
 - Maximum jobs executed at once: 1
 - Function tools: enabled
+- Send cron messages as: User
 
 ## Function Tools
 

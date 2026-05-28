@@ -18,6 +18,14 @@
                 <input id="cronjobs_tools_enabled" type="checkbox" />
             </label>
             <div class="flex-container flexFlowColumn">
+                <label for="cronjobs_send_as" data-i18n="Send cron messages as">Send cron messages as</label>
+                <select id="cronjobs_send_as" class="text_pole">
+                    <option value="user" data-i18n="User">User</option>
+                    <option value="system" data-i18n="System">System</option>
+                    <option value="character" data-i18n="Current character">Current character</option>
+                </select>
+            </div>
+            <div class="flex-container flexFlowColumn">
                 <label for="cronjobs_max_overdue_age" data-i18n="Maximum cron overdue age, hours">Maximum cron overdue age, hours</label>
                 <input id="cronjobs_max_overdue_age" class="text_pole" type="number" min="0" step="1" />
             </div>
