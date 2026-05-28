@@ -1,0 +1,70 @@
+.cronjobs_settings {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cronjobs_status {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    opacity: 0.85;
+}
+
+.cronjobs_job_list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.cronjobs_job_item {
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.cronjobs_job_header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cronjobs_job_title {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.cronjobs_job_meta {
+    margin-top: 4px;
+    opacity: 0.8;
+    overflow-wrap: anywhere;
+}
+
+.cronjobs_job_actions {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.cronjobs_job_editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cronjobs_validation {
+    min-height: 1.4em;
+    color: var(--warning);
+    overflow-wrap: anywhere;
+}
+
+.cronjobs_tool_prompt_block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+}
