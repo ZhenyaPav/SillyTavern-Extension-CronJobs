@@ -10,7 +10,7 @@
                 <input id="cronjobs_enabled" type="checkbox" />
             </label>
             <label for="cronjobs_execute_overdue" class="checkbox_label">
-                <span data-i18n="Execute overdue cron jobs on tab open / character switch">Execute overdue cron jobs on tab open / character switch</span>
+                <span data-i18n="Execute overdue cron jobs on tab open / chat switch">Execute overdue cron jobs on tab open / chat switch</span>
                 <input id="cronjobs_execute_overdue" type="checkbox" />
             </label>
             <label for="cronjobs_tools_enabled" class="checkbox_label">
@@ -22,7 +22,7 @@
                 <select id="cronjobs_send_as" class="text_pole">
                     <option value="user" data-i18n="User">User</option>
                     <option value="system" data-i18n="System">System</option>
-                    <option value="character" data-i18n="Current character">Current character</option>
+                    <option value="character" data-i18n="Current character (character chats only)">Current character (character chats only)</option>
                 </select>
             </div>
             <div class="flex-container flexFlowColumn">
@@ -34,12 +34,12 @@
                 <input id="cronjobs_max_catchup_runs" class="text_pole" type="number" min="1" step="1" />
             </div>
             <div class="cronjobs_status">
-                <span id="cronjobs_current_character" data-i18n="No character selected.">No character selected.</span>
+                <span id="cronjobs_current_character" data-i18n="No character or group selected.">No character or group selected.</span>
                 <span id="cronjobs_leader_status"></span>
             </div>
 
             <hr />
-            <h4 data-i18n="Cron Jobs for Current Character">Cron Jobs for Current Character</h4>
+            <h4 data-i18n="Cron Jobs for Current Chat">Cron Jobs for Current Chat</h4>
             <div id="cronjobs_job_list" class="cronjobs_job_list"></div>
             <div class="cronjobs_job_editor">
                 <h4 id="cronjobs_editor_title" data-i18n="Add cron job">Add cron job</h4>
@@ -58,6 +58,10 @@
                 <label for="cronjobs_edit_enabled" class="checkbox_label">
                     <span data-i18n="Enabled">Enabled</span>
                     <input id="cronjobs_edit_enabled" type="checkbox" checked />
+                </label>
+                <label for="cronjobs_edit_start_new_chat" class="checkbox_label">
+                    <span data-i18n="Start new chat before sending">Start new chat before sending</span>
+                    <input id="cronjobs_edit_start_new_chat" type="checkbox" />
                 </label>
                 <div id="cronjobs_edit_validation" class="cronjobs_validation"></div>
                 <div class="flex-container flexGap5">
@@ -81,7 +85,7 @@
             </div>
             <textarea id="cronjobs_execution_template" class="text_pole textarea_compact" rows="8"></textarea>
             <small data-i18n="Cron local variables:">Cron local variables:</small>
-            <small>&#123;&#123;id&#125;&#125;, &#123;&#123;title&#125;&#125;, &#123;&#123;scheduledAt&#125;&#125;, &#123;&#123;currentTime&#125;&#125;, &#123;&#123;prompt&#125;&#125;</small>
+            <small>&#123;&#123;id&#125;&#125;, &#123;&#123;title&#125;&#125;, &#123;&#123;targetType&#125;&#125;, &#123;&#123;targetName&#125;&#125;, &#123;&#123;scheduledAt&#125;&#125;, &#123;&#123;currentTime&#125;&#125;, &#123;&#123;prompt&#125;&#125;</small>
             <hr />
             <h4 data-i18n="Cron Function Tool Prompts">Cron Function Tool Prompts</h4>
             <div id="cronjobs_tool_prompts"></div>

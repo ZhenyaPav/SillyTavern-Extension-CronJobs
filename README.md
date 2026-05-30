@@ -1,15 +1,16 @@
 # SillyTavern Cron Jobs
 
-Frontend extension for SillyTavern that runs scheduled prompts for the currently open character.
+Frontend extension for SillyTavern that runs scheduled prompts for the currently open character or group.
 
-It can be used for periodic check-ins, reminders, ambient roleplay nudges, or any other character-scoped automation that should happen when the SillyTavern UI is open.
+It can be used for periodic check-ins, reminders, ambient roleplay nudges, or any other chat-scoped automation that should happen when the SillyTavern UI is open.
 
 ## Features
 
-- Character-scoped scheduled jobs
+- Character- and group-scoped scheduled jobs
 - One-shot date/time jobs
 - 5-field cron expression jobs
-- Overdue catch-up when opening a tab or switching characters
+- Overdue catch-up when opening a tab or switching chats
+- Optional new-chat start before a job sends its scheduled message
 - Editable scheduled-message wrapper
 - Function tools for listing, adding, updating, and deleting jobs
 - Same-browser leader lock to avoid duplicate runs across multiple tabs
@@ -27,15 +28,15 @@ After installation, enable **Cron Jobs** in the Extensions panel.
 
 ## How It Works
 
-Jobs are bound to the current character by avatar filename. A job only runs when that character is currently open.
+Jobs are bound to the current chat target. Character jobs are bound by avatar filename, and group jobs are bound by group ID. A job only runs when its character or group is currently open.
 
-When a job fires, the extension renders the configured cron message template, adds the resulting text to the current chat using the configured sender mode, and calls SillyTavern's regular generation flow. This means cron jobs use the currently selected model, character context, lorebooks, and generation settings.
+When a job fires, the extension renders the configured cron message template, optionally starts a new chat, adds the resulting text to the current chat using the configured sender mode, and calls SillyTavern's regular generation flow. This means cron jobs use the currently selected model, character context, lorebooks, and generation settings.
 
 Cron messages can be sent as:
 
 - **User**: the default normal user-message flow.
 - **System**: a `/sendas name=System` style message, visible to the model as chat history rather than a hidden SillyTavern system message.
-- **Current character**: a `/sendas name="<current character>"` style message.
+- **Current character**: a `/sendas name="<current character>"` style message. This mode is only available in character chats; use **User** or **System** for groups.
 
 The default message wrapper is:
 
@@ -54,6 +55,8 @@ The wrapper variables are local to this extension and are expanded only when a c
 
 - `{{id}}`
 - `{{title}}`
+- `{{targetType}}`
+- `{{targetName}}`
 - `{{scheduledAt}}`
 - `{{currentTime}}`
 - `{{prompt}}`
@@ -100,11 +103,12 @@ Supported field syntax:
 ## Settings
 
 - **Execute cron jobs**: master toggle for automatic execution.
-- **Execute overdue cron jobs on tab open / character switch**: run eligible missed jobs when the UI becomes available.
+- **Execute overdue cron jobs on tab open / chat switch**: run eligible missed jobs when the UI becomes available.
 - **Cron function tools**: expose job-management tools to supported LLM tool-calling models.
 - **Send cron messages as**: choose whether fired jobs are sent as the user, System, or the current character.
 - **Maximum cron overdue age, hours**: overdue jobs older than this are skipped.
 - **Maximum cron jobs executed at once**: cap catch-up runs per scheduler check.
+- **Start new chat before sending**: per-job option to create a fresh character or group chat before the cron message is sent.
 - **Cron Message Template**: wrapper used around the job prompt.
 - **Cron Function Tool Prompts**: editable tool descriptions and parameter descriptions.
 
@@ -126,9 +130,11 @@ When enabled and supported by the active model/provider, the extension registers
 - `UpdateCronJob`
 - `DeleteCronJob`
 
-Tools only operate on jobs for the currently open character.
+Tools only operate on jobs for the currently open character or group.
 
 During cron-triggered generation, this extension's own management tools are hidden to avoid recursive job-management calls. Other SillyTavern tools remain unaffected.
+
+Function tools can also set `startNewChat` on a job. If several due jobs with `startNewChat` run in one catch-up pass, each one may start its own chat; keep **Maximum cron jobs executed at once** at `1` for daily-chat style automation.
 
 ## Multi-Tab Behavior
 
@@ -140,7 +146,6 @@ This prevents common same-browser duplicate runs, but it is not a cross-device l
 
 - The SillyTavern UI must be open for jobs to run.
 - Browser background throttling can delay timers.
-- Group chats are not supported in this version.
 - Cross-device duplicate prevention would require a server-side lock.
 
 ## License

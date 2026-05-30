@@ -1,6 +1,7 @@
 import {
     Generate,
     characters,
+    doNewChat,
     eventSource,
     event_types,
     isGenerating,
@@ -8,7 +9,7 @@ import {
     this_chid,
 } from '../../../../script.js';
 import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
-import { selected_group } from '../../../group-chats.js';
+import { groups, selected_group } from '../../../group-chats.js';
 import { sendMessageAs } from '../../../slash-commands.js';
 import { ToolManager } from '../../../tool-calling.js';
 import { getMessageTimeStamp } from '../../../RossAscends-mods.js';
@@ -26,6 +27,10 @@ const SEND_AS = Object.freeze({
     SYSTEM: 'system',
     CHARACTER: 'character',
 });
+const TARGET_TYPES = Object.freeze({
+    CHARACTER: 'character',
+    GROUP: 'group',
+});
 const TAB_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 const DEFAULT_EXECUTION_TEMPLATE = `[Scheduled message from Cron Jobs]
@@ -38,16 +43,24 @@ This is an automated scheduled message, not a live user reply. Respond in the cu
 {{prompt}}`;
 
 const DEFAULT_TOOL_PROMPTS = {
-    listDescription: 'List scheduled cron jobs for the currently open character.',
-    addDescription: 'Add a scheduled cron job for the currently open character.',
-    updateDescription: 'Update a scheduled cron job for the currently open character.',
-    deleteDescription: 'Delete a scheduled cron job for the currently open character.',
+    listDescription: 'List scheduled cron jobs for the currently open character or group.',
+    addDescription: 'Add a scheduled cron job for the currently open character or group.',
+    updateDescription: 'Update a scheduled cron job for the currently open character or group.',
+    deleteDescription: 'Delete a scheduled cron job for the currently open character or group.',
     idDescription: 'The ID of the cron job.',
     titleDescription: 'Short human-readable title for the cron job.',
     promptDescription: 'The user message prompt to send when the cron job fires.',
     scheduleTypeDescription: 'Use "cron" for a recurring 5-field cron expression or "once" for a one-shot date/time.',
     scheduleDescription: 'For cron jobs, a 5-field cron expression. For one-shot jobs, an ISO or local date/time.',
     enabledDescription: 'Whether the cron job is enabled.',
+    startNewChatDescription: 'Whether to start a new chat before sending the cron message.',
+};
+
+const LEGACY_TOOL_PROMPTS = {
+    listDescription: 'List scheduled cron jobs for the currently open character.',
+    addDescription: 'Add a scheduled cron job for the currently open character.',
+    updateDescription: 'Update a scheduled cron job for the currently open character.',
+    deleteDescription: 'Delete a scheduled cron job for the currently open character.',
 };
 
 const DEFAULT_SETTINGS = {
@@ -85,7 +98,7 @@ function ensureSettings() {
     }
     current.toolPrompts ||= cloneDefault(DEFAULT_TOOL_PROMPTS);
     for (const [key, value] of Object.entries(DEFAULT_TOOL_PROMPTS)) {
-        if (current.toolPrompts[key] === undefined) {
+        if (current.toolPrompts[key] === undefined || current.toolPrompts[key] === LEGACY_TOOL_PROMPTS[key]) {
             current.toolPrompts[key] = value;
         }
     }
@@ -95,6 +108,12 @@ function ensureSettings() {
     for (const job of current.jobs) {
         job.runHistory ||= [];
         job.enabled = job.enabled !== false;
+        job.startNewChat = job.startNewChat === true;
+        if (!job.targetType && job.characterAvatar) {
+            job.targetType = TARGET_TYPES.CHARACTER;
+            job.targetId = job.characterAvatar;
+            job.targetName = job.characterName || '';
+        }
     }
     if (!Object.values(SEND_AS).includes(current.sendAs)) {
         current.sendAs = SEND_AS.USER;
@@ -108,12 +127,50 @@ function getCurrentCharacter() {
     return characters[this_chid] || null;
 }
 
-function getCurrentCharacterJobs() {
+function getCurrentTarget() {
+    if (selected_group) {
+        const group = groups.find(item => item.id === selected_group);
+        if (!group?.id) {
+            return null;
+        }
+        return {
+            type: TARGET_TYPES.GROUP,
+            id: group.id,
+            name: group.name || group.id,
+            entity: group,
+        };
+    }
+
     const character = getCurrentCharacter();
     if (!character?.avatar) {
+        return null;
+    }
+    return {
+        type: TARGET_TYPES.CHARACTER,
+        id: character.avatar,
+        name: character.name || character.avatar,
+        entity: character,
+    };
+}
+
+function isJobForTarget(job, target) {
+    if (!target) {
+        return false;
+    }
+
+    if (job.targetType && job.targetId) {
+        return job.targetType === target.type && job.targetId === target.id;
+    }
+
+    return target.type === TARGET_TYPES.CHARACTER && job.characterAvatar === target.id;
+}
+
+function getCurrentTargetJobs() {
+    const target = getCurrentTarget();
+    if (!target) {
         return [];
     }
-    return settings().jobs.filter(job => job.characterAvatar === character.avatar);
+    return settings().jobs.filter(job => isJobForTarget(job, target));
 }
 
 function generateId() {
@@ -322,7 +379,7 @@ function canRunNow({ ignoreRunnerLock = false } = {}) {
         && !isGenerating()
         && (ignoreRunnerLock || !isRunningJobs)
         && !getDraftText().trim()
-        && !!getCurrentCharacter();
+        && !!getCurrentTarget();
 }
 
 function addRunHistory(job, status, detail = '') {
@@ -346,7 +403,7 @@ function advanceJob(job, fromDate) {
 
 function getDueJobs(now = new Date()) {
     const maxAgeMs = Math.max(0, Number(settings().maxOverdueAgeHours) || 0) * 60 * 60 * 1000;
-    return getCurrentCharacterJobs()
+    return getCurrentTargetJobs()
         .filter(job => job.enabled !== false && job.nextRunAt)
         .map(job => ({ job, scheduledAt: toDate(job.nextRunAt) }))
         .filter(({ scheduledAt }) => scheduledAt && scheduledAt <= now)
@@ -361,6 +418,8 @@ function buildCronMessage(job, scheduledAt) {
     return renderTemplate(settings().executionMessageTemplate || DEFAULT_EXECUTION_TEMPLATE, {
         id: job.id,
         title: job.title,
+        targetType: job.targetType || TARGET_TYPES.CHARACTER,
+        targetName: job.targetName || job.characterName || '',
         scheduledAt: formatDate(scheduledAt),
         currentTime: formatDate(new Date()),
         prompt: job.prompt,
@@ -376,13 +435,14 @@ async function sendCronMessage(message) {
         return;
     }
 
-    const character = getCurrentCharacter();
+    const target = getCurrentTarget();
+    const character = target?.type === TARGET_TYPES.CHARACTER ? target.entity : null;
     const name = sendAs === SEND_AS.CHARACTER
         ? character?.name
         : 'System';
 
     if (!name) {
-        throw new Error(t`Current character has no name.`);
+        throw new Error(t`Current chat target is a group. Choose User or System for cron messages.`);
     }
 
     await sendMessageAs({ name }, message);
@@ -404,6 +464,9 @@ async function runJob(job, scheduledAt) {
 
     isCronGeneration = true;
     try {
+        if (job.startNewChat) {
+            await doNewChat();
+        }
         await sendCronMessage(message);
         addRunHistory(job, 'success', `Scheduled for ${scheduledAt.toISOString()}`);
     } catch (error) {
@@ -418,7 +481,7 @@ async function runJob(job, scheduledAt) {
 }
 
 async function checkDueJobs(reason = 'timer') {
-    if (!settings().enabled || !getCurrentCharacter()) {
+    if (!settings().enabled || !getCurrentTarget()) {
         return;
     }
 
@@ -479,20 +542,24 @@ function normalizeJobInput(input = {}) {
 }
 
 function createJob(input) {
-    const character = getCurrentCharacter();
-    if (!character?.avatar) {
-        throw new Error(t`Open a character chat before creating cron jobs.`);
+    const target = getCurrentTarget();
+    if (!target) {
+        throw new Error(t`Open a character or group chat before creating cron jobs.`);
     }
 
     const normalized = normalizeJobInput(input);
     const now = new Date().toISOString();
     const job = {
         id: generateId(),
-        characterAvatar: character.avatar,
-        characterName: character.name || '',
+        targetType: target.type,
+        targetId: target.id,
+        targetName: target.name,
+        characterAvatar: target.type === TARGET_TYPES.CHARACTER ? target.id : undefined,
+        characterName: target.type === TARGET_TYPES.CHARACTER ? target.name : undefined,
         title: normalized.title,
         prompt: normalized.prompt,
         enabled: input.enabled !== false,
+        startNewChat: input.startNewChat === true,
         scheduleType: normalized.scheduleType,
         schedule: normalized.schedule,
         nextRunAt: normalized.nextRun.toISOString(),
@@ -507,9 +574,9 @@ function createJob(input) {
 }
 
 function updateJob(id, input) {
-    const job = getCurrentCharacterJobs().find(item => item.id === id);
+    const job = getCurrentTargetJobs().find(item => item.id === id);
     if (!job) {
-        throw new Error(t`Cron job not found for the current character.`);
+        throw new Error(t`Cron job not found for the current chat target.`);
     }
 
     const nextInput = {
@@ -528,16 +595,19 @@ function updateJob(id, input) {
     if (input.enabled !== undefined) {
         job.enabled = input.enabled !== false;
     }
+    if (input.startNewChat !== undefined) {
+        job.startNewChat = input.startNewChat === true;
+    }
     job.updatedAt = new Date().toISOString();
     saveSettingsDebounced();
     return job;
 }
 
 function deleteJob(id) {
-    const character = getCurrentCharacter();
-    const index = settings().jobs.findIndex(job => job.id === id && job.characterAvatar === character?.avatar);
+    const target = getCurrentTarget();
+    const index = settings().jobs.findIndex(job => job.id === id && isJobForTarget(job, target));
     if (index === -1) {
-        throw new Error(t`Cron job not found for the current character.`);
+        throw new Error(t`Cron job not found for the current chat target.`);
     }
     const [job] = settings().jobs.splice(index, 1);
     saveSettingsDebounced();
@@ -548,7 +618,11 @@ function summarizeJob(job) {
     return {
         id: job.id,
         title: job.title,
+        targetType: job.targetType || TARGET_TYPES.CHARACTER,
+        targetId: job.targetId || job.characterAvatar,
+        targetName: job.targetName || job.characterName,
         enabled: job.enabled !== false,
+        startNewChat: job.startNewChat === true,
         scheduleType: job.scheduleType,
         schedule: job.schedule,
         nextRunAt: job.nextRunAt,
@@ -567,7 +641,7 @@ function registerFunctionTools() {
         return;
     }
 
-    const shouldRegister = () => settings().functionToolsEnabled && !isCronGeneration && !!getCurrentCharacter();
+    const shouldRegister = () => settings().functionToolsEnabled && !isCronGeneration && !!getCurrentTarget();
     const schema = (properties, required = []) => Object.freeze({
         $schema: 'http://json-schema.org/draft-04/schema#',
         type: 'object',
@@ -581,7 +655,7 @@ function registerFunctionTools() {
         description: getToolPrompt('listDescription'),
         parameters: schema({}),
         shouldRegister,
-        action: async () => JSON.stringify(getCurrentCharacterJobs().map(summarizeJob)),
+        action: async () => JSON.stringify(getCurrentTargetJobs().map(summarizeJob)),
     });
 
     ToolManager.registerFunctionTool({
@@ -594,6 +668,7 @@ function registerFunctionTools() {
             scheduleType: { type: 'string', enum: ['cron', 'once'], description: getToolPrompt('scheduleTypeDescription') },
             schedule: { type: 'string', description: getToolPrompt('scheduleDescription') },
             enabled: { type: 'boolean', description: getToolPrompt('enabledDescription') },
+            startNewChat: { type: 'boolean', description: getToolPrompt('startNewChatDescription') },
         }, ['title', 'prompt', 'scheduleType', 'schedule']),
         shouldRegister,
         action: async (args) => {
@@ -614,6 +689,7 @@ function registerFunctionTools() {
             scheduleType: { type: 'string', enum: ['cron', 'once'], description: getToolPrompt('scheduleTypeDescription') },
             schedule: { type: 'string', description: getToolPrompt('scheduleDescription') },
             enabled: { type: 'boolean', description: getToolPrompt('enabledDescription') },
+            startNewChat: { type: 'boolean', description: getToolPrompt('startNewChatDescription') },
         }, ['id']),
         shouldRegister,
         action: async (args) => {
@@ -646,6 +722,7 @@ function setEditorJob(job = null) {
     $('#cronjobs_edit_schedule').val(job?.schedule || '');
     $('#cronjobs_edit_prompt').val(job?.prompt || '');
     $('#cronjobs_edit_enabled').prop('checked', job?.enabled !== false);
+    $('#cronjobs_edit_start_new_chat').prop('checked', job?.startNewChat === true);
     $('#cronjobs_editor_title').text(job ? t`Edit cron job` : t`Add cron job`);
     $('#cronjobs_edit_validation').text('');
 }
@@ -656,17 +733,17 @@ function renderJobs() {
         return;
     }
 
-    const character = getCurrentCharacter();
-    if (!character) {
-        list.empty().append($('<div></div>').text(t`Open a character chat to manage cron jobs.`));
+    const target = getCurrentTarget();
+    if (!target) {
+        list.empty().append($('<div></div>').text(t`Open a character or group chat to manage cron jobs.`));
         updateStatus();
         return;
     }
 
-    const jobs = getCurrentCharacterJobs().sort((a, b) => String(a.nextRunAt || '').localeCompare(String(b.nextRunAt || '')));
+    const jobs = getCurrentTargetJobs().sort((a, b) => String(a.nextRunAt || '').localeCompare(String(b.nextRunAt || '')));
     list.empty();
     if (!jobs.length) {
-        list.append($('<div></div>').text(t`No cron jobs for this character.`));
+        list.append($('<div></div>').text(t`No cron jobs for this chat target.`));
     }
 
     for (const job of jobs) {
@@ -683,7 +760,8 @@ function renderJobs() {
         enabled.append(checkbox);
         header.append(title, enabled);
 
-        const meta = $('<div></div>').addClass('cronjobs_job_meta').text(`${job.scheduleType}: ${job.schedule} | ${t`next`}: ${job.nextRunAt ? formatDate(job.nextRunAt) : t`none`} | ${t`last`}: ${job.lastRunAt ? formatDate(job.lastRunAt) : t`never`}`);
+        const startNewChat = job.startNewChat ? ` | ${t`starts new chat`}` : '';
+        const meta = $('<div></div>').addClass('cronjobs_job_meta').text(`${job.scheduleType}: ${job.schedule} | ${t`next`}: ${job.nextRunAt ? formatDate(job.nextRunAt) : t`none`} | ${t`last`}: ${job.lastRunAt ? formatDate(job.lastRunAt) : t`never`}${startNewChat}`);
         const prompt = $('<div></div>').addClass('cronjobs_job_meta').text(job.prompt);
         const actions = $('<div></div>').addClass('cronjobs_job_actions');
         actions.append($('<button></button>').addClass('menu_button').text(t`Edit`).on('click', () => setEditorJob(job)));
@@ -703,6 +781,10 @@ function onCharacterRenamed(oldAvatar, newAvatar) {
     for (const job of settings().jobs) {
         if (job.characterAvatar === oldAvatar) {
             job.characterAvatar = newAvatar;
+            if (!job.targetType || job.targetType === TARGET_TYPES.CHARACTER) {
+                job.targetType = TARGET_TYPES.CHARACTER;
+                job.targetId = newAvatar;
+            }
             job.updatedAt = new Date().toISOString();
             changed = true;
         }
@@ -719,7 +801,11 @@ function onCharacterDeleted(data) {
         return;
     }
     const before = settings().jobs.length;
-    settings().jobs = settings().jobs.filter(job => job.characterAvatar !== avatar);
+    settings().jobs = settings().jobs.filter(job => {
+        const targetType = job.targetType || TARGET_TYPES.CHARACTER;
+        const targetId = job.targetId || job.characterAvatar;
+        return !(targetType === TARGET_TYPES.CHARACTER && targetId === avatar);
+    });
     if (settings().jobs.length !== before) {
         saveSettingsDebounced();
         renderJobs();
@@ -767,9 +853,14 @@ function updateControls() {
 }
 
 function updateStatus() {
-    const character = getCurrentCharacter();
+    const target = getCurrentTarget();
     const lease = getLeaderLeaseState();
-    $('#cronjobs_current_character').text(character ? t`Current character:` + ` ${character.name || character.avatar}` : t`No character selected.`);
+    if (target) {
+        const label = target.type === TARGET_TYPES.GROUP ? t`Current group:` : t`Current character:`;
+        $('#cronjobs_current_character').text(`${label} ${target.name}`);
+    } else {
+        $('#cronjobs_current_character').text(t`No character or group selected.`);
+    }
     if (lease.state === 'leader') {
         $('#cronjobs_leader_status').text(t`Cron scheduler: this tab is leader.`);
     } else if (lease.state === 'other') {
@@ -826,6 +917,7 @@ function bindSettingsUi() {
                 schedule: String($('#cronjobs_edit_schedule').val() || ''),
                 prompt: String($('#cronjobs_edit_prompt').val() || ''),
                 enabled: !!$('#cronjobs_edit_enabled').prop('checked'),
+                startNewChat: !!$('#cronjobs_edit_start_new_chat').prop('checked'),
             };
             const job = id ? updateJob(id, input) : createJob(input);
             setEditorJob(job);
@@ -888,7 +980,7 @@ export async function init() {
 
     // Useful for debugging from DevTools without exposing a slash command surface.
     globalThis.CronJobsExtension = {
-        list: () => getCurrentCharacterJobs().map(summarizeJob),
+        list: () => getCurrentTargetJobs().map(summarizeJob),
         check: () => checkDueJobs('manual'),
         tabId: TAB_ID,
         getContext,
