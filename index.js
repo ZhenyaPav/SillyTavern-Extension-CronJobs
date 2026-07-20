@@ -632,6 +632,15 @@ function summarizeJob(job) {
     };
 }
 
+function assertFunctionToolAvailable() {
+    if (isCronGeneration) {
+        throw new Error(t`Cron job tools cannot be used during a cron-triggered generation.`);
+    }
+    if (!getCurrentTarget()) {
+        throw new Error(t`Open a character or group chat before using cron job tools.`);
+    }
+}
+
 function registerFunctionTools() {
     for (const name of CRON_TOOL_NAMES) {
         ToolManager.unregisterFunctionTool(name);
@@ -641,7 +650,10 @@ function registerFunctionTools() {
         return;
     }
 
-    const shouldRegister = () => settings().functionToolsEnabled && !isCronGeneration && !!getCurrentTarget();
+    // Keep the advertised tool set stable between normal and cron-triggered
+    // generations so providers can reuse their prompt cache. Restrictions that
+    // depend on transient UI state are enforced when a tool is invoked instead.
+    const shouldRegister = () => settings().functionToolsEnabled;
     const schema = (properties, required = []) => Object.freeze({
         $schema: 'http://json-schema.org/draft-04/schema#',
         type: 'object',
@@ -655,7 +667,10 @@ function registerFunctionTools() {
         description: getToolPrompt('listDescription'),
         parameters: schema({}),
         shouldRegister,
-        action: async () => JSON.stringify(getCurrentTargetJobs().map(summarizeJob)),
+        action: async () => {
+            assertFunctionToolAvailable();
+            return JSON.stringify(getCurrentTargetJobs().map(summarizeJob));
+        },
     });
 
     ToolManager.registerFunctionTool({
@@ -672,6 +687,7 @@ function registerFunctionTools() {
         }, ['title', 'prompt', 'scheduleType', 'schedule']),
         shouldRegister,
         action: async (args) => {
+            assertFunctionToolAvailable();
             const job = createJob(args);
             renderJobs();
             return JSON.stringify(summarizeJob(job));
@@ -693,6 +709,7 @@ function registerFunctionTools() {
         }, ['id']),
         shouldRegister,
         action: async (args) => {
+            assertFunctionToolAvailable();
             const job = updateJob(String(args.id), args);
             renderJobs();
             return JSON.stringify(summarizeJob(job));
@@ -708,6 +725,7 @@ function registerFunctionTools() {
         }, ['id']),
         shouldRegister,
         action: async (args) => {
+            assertFunctionToolAvailable();
             const job = deleteJob(String(args.id));
             renderJobs();
             return JSON.stringify({ deleted: summarizeJob(job) });

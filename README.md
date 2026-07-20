@@ -132,7 +132,7 @@ When enabled and supported by the active model/provider, the extension registers
 
 Tools only operate on jobs for the currently open character or group.
 
-During cron-triggered generation, this extension's own management tools are hidden to avoid recursive job-management calls. Other SillyTavern tools remain unaffected.
+During cron-triggered generation, this extension keeps its management tool definitions in the request so the provider's prompt-cache prefix remains stable. Invocations are rejected until the cron-triggered generation finishes, preventing recursive job management. Other SillyTavern tools remain unaffected.
 
 Function tools can also set `startNewChat` on a job. If several due jobs with `startNewChat` run in one catch-up pass, each one may start its own chat; keep **Maximum cron jobs executed at once** at `1` for daily-chat style automation.
 
